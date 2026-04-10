@@ -2,7 +2,7 @@
   "name": "Warung Zavi",
   "short_name": "WarungZavi",
   "description": "Premium Debt Tracker for Warung Zavi",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#09090b",
   "theme_color": "#09090b",
@@ -23,22 +23,22 @@
       "name": "New Debt",
       "short_name": "New Debt",
       "description": "Log a new debt entry",
-      "url": "/debts",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "url": "debts",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Income",
       "short_name": "Income",
       "description": "View daily revenue",
-      "url": "/income",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "url": "income",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Buyers",
       "short_name": "Buyers",
       "description": "Manage customer list",
-      "url": "/customers",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "url": "customers",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     }
   ]
 }
