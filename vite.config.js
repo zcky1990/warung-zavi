@@ -10,6 +10,6 @@ export default defineConfig({
       '@': resolve(process.cwd(), './src'),
     },
   },
-  // Set base for GitHub Pages if needed (e.g., if deployed to /warung-zavi/)
-  // base: '/warung-zavi/', 
+  // Set base for GitHub Pages
+  base: '/warung-zavi/',
 })
