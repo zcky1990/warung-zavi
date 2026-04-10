@@ -10,8 +10,8 @@ const isSubmitting = ref(false)
 
 const handleLogin = () => {
     isSubmitting.value = true
-    const adminUser = import.meta.env.VITE_WARUNG_ZAVI_ADMIN_USERNAME
-    const adminPass = import.meta.env.VITE_WARUNG_ZAVI_ADMIN_PASSWORD
+    const adminUser = import.meta.env.VITE_WARUNG_ZAVI_ADMIN_USERNAME || 'devia'
+    const adminPass = import.meta.env.VITE_WARUNG_ZAVI_ADMIN_PASSWORD || 'password123'
     
     // Tiny delay to show the nice loader
     setTimeout(() => {
