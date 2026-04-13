@@ -47,29 +47,6 @@ const filteredIncome = computed(() => {
             </p>
         </div>
       </div>
-      <div class="p-8 md:p-10 flex flex-col justify-center bg-card">
-        <div class="flex items-center space-x-3 mb-6">
-            <div class="w-10 h-10 bg-primary text-primary-foreground rounded-xl flex items-center justify-center shadow-lg transform -rotate-3">
-                <TrendingUp class="w-5 h-5" />
-            </div>
-            <div>
-                <p class="text-sm font-black tracking-tight leading-none">Net Performance</p>
-                <p class="text-xs text-muted-foreground font-medium mt-1">Live from data ledger</p>
-            </div>
-        </div>
-        <div class="space-y-2">
-            <div class="flex items-center justify-between text-sm min-w-[200px]">
-                <span class="text-muted-foreground font-medium">Daily Target</span>
-                <span class="font-bold tracking-tight">Rp 2,000,000</span>
-            </div>
-            <div class="w-full h-1.5 bg-secondary rounded-full overflow-hidden border border-border">
-                <div 
-                  class="h-full bg-primary transition-all duration-1000" 
-                  :style="{ width: Math.min((todayTotal / 2000000) * 100, 100) + '%' }"
-                ></div>
-            </div>
-        </div>
-      </div>
     </div>
 
     <!-- Transaction Table -->

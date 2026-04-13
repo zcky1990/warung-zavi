@@ -59,6 +59,39 @@ const filteredDebts = computed(() => {
     }).sort((a, b) => new Date(b.date) - new Date(a.date))
 })
 
+const groupedDebts = computed(() => {
+    const groups = {}
+    filteredDebts.value.forEach(d => {
+        if (!groups[d.customerid]) {
+            groups[d.customerid] = {
+                customerid: d.customerid,
+                total: 0,
+                items: [],
+                date: d.date,
+                status: d.status,
+                records: []
+            }
+        }
+        groups[d.customerid].total += parseFloat(d.total)
+        groups[d.customerid].records.push(d)
+        
+        // Use latest date
+        if (new Date(d.date) > new Date(groups[d.customerid].date)) {
+            groups[d.customerid].date = d.date
+        }
+    })
+    
+    return Object.values(groups).map(g => {
+        // Concatenate items for display, but keep them readable
+        const allItems = g.records.map(r => r.items).join(', ')
+        return {
+            ...g,
+            id: g.customerid, // proxy ID
+            items: allItems
+        }
+    }).sort((a, b) => new Date(b.date) - new Date(a.date))
+})
+
 const parseItems = (itemsString) => {
     if (!itemsString) return []
     // Split by comma if it contains commas, or just return as one item
@@ -100,8 +133,31 @@ const updateTotalFromCart = () => {
     debtForm.value.items = cart.value.map(i => `${i.name} (${i.qty})`).join(', ')
 }
 
-const openDetail = (debt) => {
-    selectedDebtDetail.value = debt
+const parseItemsToObjects = (itemsString) => {
+    return parseItems(itemsString).map(itemStr => {
+        const match = itemStr.match(/(.*) \((\d+)\)/)
+        if (match) {
+            return { name: match[1], qty: parseInt(match[2]) }
+        }
+        return { name: itemStr, qty: 1 }
+    })
+}
+
+const mergeCartItems = (oldItems, newItems) => {
+    const merged = [...oldItems]
+    newItems.forEach(newItem => {
+        const existing = merged.find(i => i.name === newItem.name)
+        if (existing) {
+            existing.qty += newItem.qty
+        } else {
+            merged.push({ ...newItem })
+        }
+    })
+    return merged
+}
+
+const openDetail = (group) => {
+    selectedDebtDetail.value = group
     showDetailModal.value = true
 }
 
@@ -133,6 +189,37 @@ const closeModal = () => {
 }
 
 const submitDebt = () => {
+    if (!isEditing.value) {
+        // Look for existing unpaid debt for this customer today
+        const today = new Date().toISOString().split('T')[0]
+        const existingDebt = props.data.debts.find(d => 
+            d.customerid === debtForm.value.customerId && 
+            d.status === 'unpaid' && 
+            d.date.startsWith(today)
+        )
+
+        if (existingDebt) {
+            const existingItems = parseItemsToObjects(existingDebt.items)
+            const newItems = cart.value // Current cart being added
+            const merged = mergeCartItems(existingItems, newItems)
+            
+            const mergedItemsStr = merged.map(i => `${i.name} (${i.qty})`).join(', ')
+            const mergedTotal = parseFloat(existingDebt.total) + parseFloat(debtForm.value.total)
+
+            emit('action', { 
+                type: 'update_debt', 
+                payload: { 
+                    id: existingDebt.id, 
+                    customerId: existingDebt.customerid,
+                    items: mergedItemsStr,
+                    total: mergedTotal
+                } 
+            })
+            closeModal()
+            return
+        }
+    }
+
     const actionType = isEditing.value ? 'update_debt' : 'add_debt'
     emit('action', { type: actionType, payload: { ...debtForm.value } })
     closeModal()
@@ -180,35 +267,36 @@ const confirmPayment = (method) => {
 
     <!-- Debt List -->
     <div class="grid grid-cols-1 gap-4">
-      <div v-for="d in filteredDebts" :key="d.id" 
-           @click="openDetail(d)"
+      <div v-for="g in groupedDebts" :key="g.customerid" 
+           @click="openDetail(g)"
            class="bg-card border border-border p-6 rounded-xl flex flex-col md:flex-row md:items-center justify-between hover:border-primary/40 hover:shadow-md transition-all cursor-pointer relative group">
         
         <div class="flex items-center space-x-5 mb-4 md:mb-0">
-          <div :class="cn('w-12 h-12 rounded-xl flex items-center justify-center border shadow-inner', d.status === 'paid' ? 'bg-secondary border-border text-muted-foreground' : 'bg-primary text-primary-foreground border-primary')">
+          <div :class="cn('w-12 h-12 rounded-xl flex items-center justify-center border shadow-inner', g.status === 'paid' ? 'bg-secondary border-border text-muted-foreground' : 'bg-primary text-primary-foreground border-primary')">
             <Receipt class="w-6 h-6" />
           </div>
           <div>
             <div class="flex items-center space-x-2">
-                <h4 class="font-black text-lg tracking-tight text-foreground">{{ getCustomerName(d.customerid) }}</h4>
-                <div v-if="d.status === 'paid'" class="px-2 py-0.5 bg-secondary text-muted-foreground border border-border rounded-md text-[8px] font-black uppercase tracking-widest">Settled</div>
+                <h4 class="font-black text-lg tracking-tight text-foreground">{{ getCustomerName(g.customerid) }}</h4>
+                <div v-if="g.status === 'paid' && g.records.every(r => r.status === 'paid')" class="px-2 py-0.5 bg-secondary text-muted-foreground border border-border rounded-md text-[8px] font-black uppercase tracking-widest">Settled</div>
+                <div v-else-if="g.records.length > 1" class="px-2 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded-md text-[8px] font-black uppercase tracking-widest">{{ g.records.length }} Records</div>
             </div>
             <div class="flex items-center space-x-3 text-xs font-bold text-muted-foreground mt-1">
-                <span class="flex items-center tracking-tighter"><Calendar class="w-3 h-3 mr-1 opacity-60" /> {{ formatDate(d.date).split(',')[0] }}</span>
+                <span class="flex items-center tracking-tighter"><Calendar class="w-3 h-3 mr-1 opacity-60" /> {{ formatDate(g.date).split(',')[0] }}</span>
                 <span class="w-1 h-1 bg-border rounded-full"></span>
-                <span class="flex items-center tracking-tight opacity-80 truncate max-w-[200px]"><Package class="w-3 h-3 mr-1 opacity-60" /> {{ d.items }}</span>
+                <span class="flex items-center tracking-tight opacity-80 truncate max-w-[200px]"><Package class="w-3 h-3 mr-1 opacity-60" /> {{ g.items }}</span>
             </div>
           </div>
         </div>
         <div class="flex items-center justify-between md:space-x-12">
           <div class="text-right">
             <p class="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1">Total</p>
-            <p class="text-xl font-black tracking-tighter text-foreground">Rp {{ formatNumber(d.total) }}</p>
+            <p class="text-xl font-black tracking-tighter text-foreground">Rp {{ formatNumber(g.total) }}</p>
           </div>
           <ChevronRight class="w-5 h-5 text-muted-foreground/30 group-hover:text-primary transition-colors" />
         </div>
       </div>
-      <div v-if="filteredDebts.length === 0" class="bg-card p-20 border border-border border-dashed rounded-xl flex flex-col items-center">
+      <div v-if="groupedDebts.length === 0" class="bg-card p-20 border border-border border-dashed rounded-xl flex flex-col items-center">
         <Receipt class="w-12 h-12 text-muted-foreground/20 mb-4" />
         <p class="text-muted-foreground text-sm font-medium italic">No ledger entries matching criteria</p>
       </div>
@@ -300,47 +388,56 @@ const confirmPayment = (method) => {
 
     <!-- Detail Modal -->
     <div v-if="showDetailModal" class="fixed inset-0 bg-background/80 backdrop-blur-sm z-[105] flex items-center justify-center p-4 animate-in fade-in duration-300">
-      <div class="bg-card border border-border rounded-2xl w-full max-w-md overflow-hidden shadow-2xl scale-in-95">
+      <div class="bg-card border border-border rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl scale-in-95">
         <div class="p-8 text-center border-b border-border bg-muted/20 relative">
           <button @click="showDetailModal = false" class="absolute top-4 right-4 p-1 hover:bg-secondary rounded-md">
             <X class="w-5 h-5 text-muted-foreground" />
           </button>
           
-          <div :class="cn('w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-6 border shadow-xl transform rotate-3', selectedDebtDetail.status === 'paid' ? 'bg-secondary text-muted-foreground' : 'bg-primary text-primary-foreground')">
+          <div :class="cn('w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-6 border shadow-xl transform rotate-3', selectedDebtDetail.records.every(r => r.status === 'paid') ? 'bg-secondary text-muted-foreground' : 'bg-primary text-primary-foreground')">
             <Receipt class="w-8 h-8" />
           </div>
           
           <h3 class="text-2xl font-black tracking-tighter">{{ getCustomerName(selectedDebtDetail.customerid) }}</h3>
-          <p class="text-xs text-muted-foreground font-bold mt-1 uppercase tracking-widest">{{ formatDate(selectedDebtDetail.date) }}</p>
+          <p class="text-xs text-muted-foreground font-bold mt-1 uppercase tracking-widest">Active Debt Profile</p>
         </div>
         
-        <div class="p-8 space-y-6">
-          <div class="space-y-3">
-             <p class="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Itemized List</p>
-             <div class="space-y-2">
-                <div v-for="(item, i) in parseItems(selectedDebtDetail.items)" :key="i" class="flex items-center space-x-3 text-sm font-bold tracking-tight text-foreground/80 bg-muted/10 p-3 rounded-lg border border-border/50">
-                    <ChevronRight class="w-4 h-4 text-primary shrink-0" />
-                    <span>{{ item }}</span>
-                </div>
-             </div>
-          </div>
-          
-          <div class="pt-6 border-t border-border flex justify-between items-end">
-             <div>
-                <p class="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Record ID</p>
-                <p class="text-xs font-mono font-bold opacity-30">#{{ selectedDebtDetail.id.slice(0, 8) }}</p>
-             </div>
-             <div class="text-right">
-                <p class="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Final Amount</p>
-                <p class="text-3xl font-black tracking-tighter text-foreground">Rp {{ formatNumber(selectedDebtDetail.total) }}</p>
-             </div>
+        <div class="flex-1 max-h-[50vh] overflow-y-auto p-6 space-y-4">
+          <p class="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-2">Individual Records</p>
+          <div v-for="record in selectedDebtDetail.records" :key="record.id" 
+               class="bg-muted/10 border border-border/50 rounded-xl p-4 flex justify-between items-center group hover:bg-muted/20 transition-all">
+            <div class="space-y-1">
+              <div class="flex items-center space-x-2">
+                <span class="text-xs font-black tracking-tight">{{ formatDate(record.date).split(',')[0] }}</span>
+                <span v-if="record.status === 'paid'" class="text-[8px] font-black uppercase text-muted-foreground px-1.5 py-0.5 bg-secondary border border-border rounded">Settled</span>
+              </div>
+              <p class="text-xs text-muted-foreground font-medium truncate max-w-[200px]">{{ record.items }}</p>
+            </div>
+            <div class="flex items-center space-x-4">
+              <div class="text-right">
+                <p class="text-sm font-black tracking-tighter">Rp {{ formatNumber(record.total) }}</p>
+              </div>
+              <div class="flex space-x-1" v-if="record.status === 'unpaid'">
+                <button @click="editDebt(record); showDetailModal = false" class="p-2 hover:bg-primary/10 text-primary rounded-md transition-colors" title="Edit">
+                  <Edit2 class="w-3.5 h-3.5" />
+                </button>
+                <button @click="initPayment(record)" class="p-2 hover:bg-primary text-primary-foreground bg-primary rounded-md shadow-sm transition-all" title="Settle">
+                  <Banknote class="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
         
-        <div class="p-6 bg-muted/20 border-t border-border flex space-x-3">
-            <button v-if="selectedDebtDetail.status === 'unpaid'" @click="editDebt(selectedDebtDetail); showDetailModal = false" class="btn-outline flex-1 h-12 font-bold uppercase tracking-widest text-[10px]">Edit Entry</button>
-            <button v-if="selectedDebtDetail.status === 'unpaid'" @click="initPayment(selectedDebtDetail)" class="btn-primary flex-[2] h-12 font-bold uppercase tracking-widest text-[10px]">Settle Now</button>
-            <div v-else class="w-full py-4 text-center bg-secondary border border-border text-muted-foreground text-xs font-black uppercase tracking-widest rounded-xl">Transaction Settled</div>
+        <div class="p-8 pt-6 border-t border-border bg-muted/20 flex justify-between items-end">
+            <div>
+               <p class="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Records Found</p>
+               <p class="text-xs font-bold">{{ selectedDebtDetail.records.length }} entries</p>
+            </div>
+            <div class="text-right">
+               <p class="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Total Outstanding</p>
+               <p class="text-3xl font-black tracking-tighter text-foreground">Rp {{ formatNumber(selectedDebtDetail.total) }}</p>
+            </div>
         </div>
       </div>
     </div>
