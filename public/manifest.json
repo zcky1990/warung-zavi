@@ -23,21 +23,21 @@
       "name": "New Debt",
       "short_name": "New Debt",
       "description": "Log a new debt entry",
-      "url": "debts",
+      "url": "#/debts",
       "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Income",
       "short_name": "Income",
       "description": "View daily revenue",
-      "url": "income",
+      "url": "#/income",
       "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Buyers",
       "short_name": "Buyers",
       "description": "Manage customer list",
-      "url": "customers",
+      "url": "#/customers",
       "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     }
   ]
