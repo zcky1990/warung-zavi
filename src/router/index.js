@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import Home from '@/views/Home.vue'
 import Login from '@/views/Login.vue'
 import Dashboard from '@/views/Dashboard.vue'
 import Customers from '@/views/Customers.vue'
@@ -7,9 +8,15 @@ import Debts from '@/views/Debts.vue'
 import Income from '@/views/Income.vue'
 
 const routes = [
-  { path: '/login', name: 'Login', component: Login },
   { 
     path: '/', 
+    name: 'Home', 
+    component: Home,
+    meta: { isPublic: true }
+  },
+  { path: '/login', name: 'Login', component: Login },
+  { 
+    path: '/dashboard', 
     name: 'Dashboard', 
     component: Dashboard,
     meta: { requiresAuth: true }

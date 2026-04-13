@@ -31,7 +31,7 @@ const store = ref({
 })
 
 const navItems = [
-  { id: 'Dashboard', path: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'Dashboard', path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'Customers', path: '/customers', label: 'Buyers', icon: Users },
   { id: 'Products', path: '/products', label: 'Products', icon: Package },
   { id: 'Debts', path: '/debts', label: 'Debts', icon: Receipt },
@@ -52,7 +52,6 @@ const todayFormatted = computed(() => {
 })
 
 const reloadData = async () => {
-  if (!isLoggedIn.value) return
   loading.value = true
   store.value = await api.getData()
   loading.value = false
@@ -198,7 +197,7 @@ const logout = () => {
 
 router.afterEach((to) => {
   isLoggedIn.value = localStorage.getItem('isLoggedIn') === 'true'
-  if (to.path !== '/login' && isLoggedIn.value && store.value.customers.length === 0) {
+  if (to.name !== 'Login' && store.value.customers.length === 0) {
     reloadData()
   }
 })
@@ -212,10 +211,38 @@ defineExpose({ handleAction })
 
 <template>
   <div class="min-h-screen bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
-    <!-- Auth View -->
-    <router-view v-if="!isLoggedIn" />
+    <!-- Public View Layout -->
+    <div v-if="route.meta.isPublic" class="flex flex-col min-h-screen">
+      <header class="h-16 bg-white/80 backdrop-blur-md border-b border-border sticky top-0 z-[100] px-6 flex justify-between items-center transition-all duration-300">
+        <div class="flex items-center space-x-3">
+          <div class="p-1.5 bg-primary text-primary-foreground rounded-lg">
+            <Store class="w-5 h-5" />
+          </div>
+          <h1 class="font-black text-lg tracking-tighter">Warung Zavi</h1>
+        </div>
+        <router-link to="/login" class="btn-primary h-10 px-5 text-xs font-black uppercase tracking-widest flex items-center shadow-lg hover:scale-105 active:scale-95 transition-all">
+          Staff Portal
+        </router-link>
+      </header>
+      <main class="flex-1">
+        <router-view v-slot="{ Component }">
+          <transition name="page" mode="out-in">
+            <component :is="Component" :data="store" />
+          </transition>
+        </router-view>
+      </main>
+    </div>
 
-    <!-- Main App View -->
+    <!-- Auth View (No Sidebar) -->
+    <div v-else-if="!isLoggedIn" class="min-h-screen">
+      <router-view v-slot="{ Component }">
+        <transition name="page" mode="out-in">
+          <component :is="Component" :data="store" />
+        </transition>
+      </router-view>
+    </div>
+
+    <!-- Protected View (Sidebar layout) -->
     <div v-else class="flex flex-col md:flex-row min-h-screen">
       <!-- Sidebar (Desktop) -->
       <aside class="hidden md:flex flex-col w-64 bg-card border-r border-border sticky top-0 h-screen z-50">
@@ -264,8 +291,10 @@ defineExpose({ handleAction })
       <div class="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
         <!-- Header -->
         <header class="h-16 bg-card border-b border-border sticky top-0 z-40 px-6 flex justify-between items-center shrink-0 shadow-sm">
-          <div class="flex items-center space-x-2">
-            <span class="text-sm font-medium text-muted-foreground px-2 py-0.5 bg-secondary rounded">{{ activeNavItem.label }}</span>
+          <div class="flex items-center space-x-2 text-primary font-black uppercase tracking-widest text-[10px]">
+            <router-link to="/" class="hover:text-foreground opacity-60 transition-all">Home</router-link>
+            <span class="opacity-30">/</span>
+            <span class="text-sm font-medium text-muted-foreground px-2 py-0.5 bg-secondary rounded">{{ activeNavItem?.label }}</span>
             <div v-if="isSyncing" class="flex items-center space-x-2 ml-4 animate-in fade-in duration-300">
                 <div class="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
                 <span class="text-[10px] font-black uppercase tracking-widest text-primary opacity-70">Syncing...</span>
