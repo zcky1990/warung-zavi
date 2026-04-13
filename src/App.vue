@@ -134,14 +134,24 @@ const syncLocalState = (type, payload, result) => {
       break
     case 'pay_debt':
       const pDebt = store.value.debts.find(d => d.id === payload.debtId)
-      if (pDebt) pDebt.status = 'paid'
-      store.value.income.unshift({
-        id: result.id,
-        date: result.date,
-        amount: payload.amount,
-        source: 'Debt Payment',
-        method: payload.method
-      })
+      if (pDebt) {
+        const paidAmount = parseFloat(payload.amount)
+        const currentTotal = parseFloat(pDebt.total)
+        
+        if (paidAmount < currentTotal) {
+          pDebt.total = currentTotal - paidAmount
+        } else {
+          pDebt.status = 'paid'
+        }
+
+        store.value.income.unshift({
+          id: result.id,
+          date: result.date,
+          amount: paidAmount,
+          source: 'Debt Payment',
+          method: payload.method
+        })
+      }
       break
     case 'add_direct_income':
       store.value.income.unshift({

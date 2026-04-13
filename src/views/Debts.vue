@@ -31,6 +31,7 @@ const isEditing = ref(false)
 const selectedProduct = ref(null)
 const currentDebt = ref(null)
 const selectedDebtDetail = ref(null)
+const paymentAmount = ref(0)
 
 const cart = ref([])
 const manualItemName = ref('')
@@ -227,13 +228,14 @@ const submitDebt = () => {
 
 const initPayment = (d) => {
     currentDebt.value = d
+    paymentAmount.value = d.total
     showPaymentModal.value = true
 }
 
 const confirmPayment = (method) => {
     emit('action', { 
         type: 'pay_debt', 
-        payload: { debtId: currentDebt.value.id, amount: currentDebt.value.total, method } 
+        payload: { debtId: currentDebt.value.id, amount: paymentAmount.value, method } 
     })
     showPaymentModal.value = false
     showDetailModal.value = false
@@ -458,8 +460,28 @@ const confirmPayment = (method) => {
              <p class="text-3xl font-black tracking-tighter text-foreground">Rp {{ formatNumber(currentDebt.total) }}</p>
           </div>
         </div>
-        <div class="p-8">
-          <p class="text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center mb-6">Verified Payment Methods</p>
+        <div class="p-8 space-y-6">
+          <div class="space-y-2">
+            <label class="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Payment Amount</label>
+            <div class="relative">
+              <span class="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-muted-foreground">Rp</span>
+              <input 
+                type="number" 
+                v-model="paymentAmount" 
+                class="form-input pl-12 h-14 text-xl font-black tracking-tight"
+                :max="currentDebt.total"
+              >
+            </div>
+            <p v-if="paymentAmount < currentDebt.total" class="text-[10px] text-primary font-bold italic mt-1">
+              * Remaining balance: Rp {{ formatNumber(currentDebt.total - paymentAmount) }}
+            </p>
+          </div>
+
+          <div class="relative py-4">
+             <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-border"></div></div>
+             <div class="relative flex justify-center text-[10px] uppercase font-black text-muted-foreground tracking-[0.2em] bg-card px-2">Verified Methods</div>
+          </div>
+
           <div class="grid grid-cols-2 gap-3">
             <button v-for="method in [['Cash', Banknote], ['Transfer', Landmark], ['Dana', Smartphone], ['QRIS', QrCode]]" 
                 :key="method[0]"
